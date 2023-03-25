@@ -26,15 +26,58 @@ class Ingredient:
         self.unit = unit
 
 
-def parse_recipes(path_to_workbook) -> List[Recipe]:
-    recipes = []
+class RecipeList:
+    def __init__(self):
+        self.recipes = []
+
+    def add_recipe(self, recipe):
+        self.recipes.append(recipe)
+    
+    def has_recipes(self) -> bool:
+        return len(self.recipes) > 0
+
+    def contains_recipe(self, recipe) -> bool:
+        for existing_recipe in self.recipes:
+            if existing_recipe.name == recipe.name:
+                return True
+        
+        return False
+
+    def get_recipe_by_print_index(self, index) -> Recipe:
+        """ Print index starts from 1 """
+        if index >= 1 and index <= len(self.recipes):
+            return self.recipes[index-1]
+        else:
+            return None
+
+    def print_recipes(self, exclude_index=False):
+        """ Print index starts from 1 """
+        for i, recipe in enumerate(self.recipes):
+            if exclude_index:
+                print(f"{i+1}. {recipe.name}")
+            else:
+                print(f"- {recipe.name}")
+    
+    def print_unselected_recipes(self, selected_recipe_list):
+        for i, recipe in enumerate(self.recipes):
+            if not selected_recipe_list.contains_recipe(recipe):
+                print(f"{i+1}. {recipe.name}")
+
+
+def clear_terminal():
+    os.system("cls" if os.name == "nt" else "clear")
+
+
+def parse_recipes(path_to_workbook) -> RecipeList:
+    recipes = RecipeList()
 
     while True:
         try:
             workbook = openpyxl.load_workbook(path_to_workbook)
             break
         except:
-            input("Closed workbook and press 'Enter' to continue.")
+            input("\nClose workbook and press 'Enter' to continue.")
+            clear_terminal()
     
     for sheet in workbook.sheetnames:
         worksheet = workbook[sheet]
@@ -48,7 +91,7 @@ def parse_recipes(path_to_workbook) -> List[Recipe]:
 
             if is_header:
                 if name != "Ingredients":
-                    print(f"Skipped '{sheet}' as has no ingredients")
+                    print(f"Skipped '{sheet}' as has no ingredients.")
                     break
 
                 is_header = False
@@ -63,19 +106,64 @@ def parse_recipes(path_to_workbook) -> List[Recipe]:
             recipe.add_ingredient(name, quantity, unit)
         
         if recipe is not None:
-            recipes.append(recipe)
+            recipes.add_recipe(recipe)
     
     return recipes
 
 
-def main():
-    recipes = parse_recipes(PATH_TO_WORKBOOK)
+def select_recipes(all_recipes: RecipeList):
+    selected_recipes = RecipeList()
 
-    # Do something with the recipe instance
-    for recipe in recipes:
+    while True:
+        if selected_recipes.has_recipes():
+            print("\nSelected Recipes:")
+            selected_recipes.print_recipes(exclude_index=True)
+
+        print("\nAvailable Recipes:")
+        all_recipes.print_unselected_recipes(selected_recipes)
+
+        print("\nEnter the index of the recipe you wish to select or enter 'Done' to confirm the current selection:")
+        user_selection = input("")
+
+        clear_terminal()
+
+        if user_selection.lower() == 'done':
+            return selected_recipes
+        
+        try:
+            index = int(user_selection)
+        except ValueError:
+            print("\nInvalid input. Ensure you are entering a number or 'Done'.")
+            continue
+        
+        selected_recipe = all_recipes.get_recipe_by_print_index(index)
+        if selected_recipe is None:
+            print("\nSelected index is out of range.")
+            continue
+        
+        if selected_recipes.contains_recipe(selected_recipe):
+            print("\nThis recipe has already been selected.")
+            continue
+        
+        selected_recipes.add_recipe(selected_recipe)
+
+
+def main():
+    clear_terminal()
+
+    # Parse spreadsheet into RecipeList
+    all_recipes = parse_recipes(PATH_TO_WORKBOOK)
+
+    # Ask user for selection of recipes as RecipeList
+    selected_recipes = select_recipes(all_recipes)
+
+    # Print selected RecipeList
+    clear_terminal()
+
+    print(f"\n{len(selected_recipes.recipes)} Selected Recipes")
+    for recipe in selected_recipes.recipes:
         print(f"\nRecipe: {recipe.name}")
         for ingredient in recipe.ingredients:
             print(f"Name: {ingredient.name}, Quantity: {ingredient.quantity}, Unit: {ingredient.unit}")
-
 
 main()
